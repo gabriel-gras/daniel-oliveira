@@ -10,7 +10,7 @@ Este projeto foi desenvolvido aplicando conceitos avançados de **AI Software En
 
 O sistema foi arquitetado de forma minimalista, dividindo a responsabilidade em duas frentes principais:
 
-1. **Motor de Scraping (Backend Assíncrono):** Scripts em Python (`requests` e `BeautifulSoup4`) que buscam os preços nas lojas e os normalizam.
+1. **Motor de Scraping (Extração de Dados):** Scripts em Python (`requests` e `BeautifulSoup4`) que buscam os preços de forma direta e sequencial nas lojas, normalizando os resultados.
 2. **API e Interface (Frontend):** Uma API rápida em `FastAPI` que serve os dados armazenados para um frontend leve feito em HTML, JavaScript puro, Tailwind CSS e Chart.js.
 
 ### 🗄️ O Banco de Dados e o Histórico de Preços

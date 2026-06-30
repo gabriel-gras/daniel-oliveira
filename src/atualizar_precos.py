@@ -55,8 +55,8 @@ def salvar_resultados(resultados: List[Dict[str, Any]]) -> int:
     Salva os resultados normalizados no banco de dados.
 
     Para cada oferta: garante que o jogo existe na tabela 'jogos' (usando o
-    nome retornado pela própria loja) e insere o preço do dia na tabela
-    'precos'.
+    nome retornado pela própria loja, e a capa, se disponível) e insere o
+    preço do dia na tabela 'precos'.
 
     Nota: cada loja pode formatar o nome do jogo de forma levemente
     diferente (ex.: "Hollow Knight" vs "Hollow Knight: Voidheart Edition").
@@ -69,7 +69,11 @@ def salvar_resultados(resultados: List[Dict[str, Any]]) -> int:
 
     try:
         for oferta in resultados:
-            id_jogo = inserir_ou_obter_jogo(conn, oferta["jogo"])
+            id_jogo = inserir_ou_obter_jogo(
+                conn,
+                nome=oferta["jogo"],
+                capa_url=oferta.get("capa"),
+            )
             inserir_preco(
                 conn,
                 id_jogo=id_jogo,

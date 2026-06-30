@@ -116,6 +116,7 @@ function renderJogo(jogo) {
 
   if (jogo.capa_url) {
     el.gameCover.src = jogo.capa_url;
+    el.gameCover.alt = `Capa de ${jogo.nome}`;
     el.gameCover.classList.remove("hidden");
     el.gameCoverFallback.classList.add("hidden");
     el.gameCover.onerror = () => {

@@ -16,13 +16,30 @@ def get_connection() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     return conn
 
+
 def inserir_ou_obter_jogo(conn, nome: str, capa_url: str | None = None) -> int:
-    """Insere um jogo (se não existir) e retorna o id."""
+    """
+    Insere um jogo (se não existir) e retorna o id.
+
+    Resiliência: se o jogo já existir mas ainda não tiver capa_url salva
+    (registros antigos, ou execuções anteriores em que o scraper não achou
+    a imagem), e agora recebermos uma capa válida, atualizamos o registro
+    em vez de descartar a informação nova.
+    """
     cursor = conn.cursor()
-    cursor.execute("SELECT id FROM jogos WHERE nome = ?", (nome,))
+    cursor.execute("SELECT id, capa_url FROM jogos WHERE nome = ?", (nome,))
     row = cursor.fetchone()
+
     if row:
-        return row["id"]
+        id_jogo = row["id"]
+        if capa_url and not row["capa_url"]:
+            cursor.execute(
+                "UPDATE jogos SET capa_url = ? WHERE id = ?",
+                (capa_url, id_jogo),
+            )
+            conn.commit()
+        return id_jogo
+
     cursor.execute(
         "INSERT INTO jogos (nome, capa_url) VALUES (?, ?)",
         (nome, capa_url),
@@ -44,6 +61,7 @@ def inserir_preco(conn, id_jogo: int, loja: str, preco: float, url_compra: str |
     conn.commit()
     return cursor.lastrowid
 
+
 def init_db() -> None:
     """
     Inicializa o banco de dados, criando as tabelas 'jogos' e 'precos'
@@ -52,7 +70,6 @@ def init_db() -> None:
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Tabela jogos: nome canônico + capa (thumbnail)
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS jogos (
@@ -63,7 +80,6 @@ def init_db() -> None:
         """
     )
 
-    # Tabela precos: registros diários de cada oferta
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS precos (
@@ -84,5 +100,4 @@ def init_db() -> None:
 
 
 if __name__ == "__main__":
-    # Permite rodar `python src/database.py` para criar o banco manualmente
     init_db()

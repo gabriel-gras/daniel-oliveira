@@ -7,7 +7,7 @@ Steam, GOG, Epic Games e Nuuvem.
 Conforme Spec 01 (docs/specs/01-scraping-pc.md):
 - Sem Playwright/Selenium - apenas `requests` + `BeautifulSoup4`.
 - Saída sempre normalizada no formato:
-  {"jogo": str, "loja": str, "preco": float, "url_compra": str}
+  {"jogo": str, "capa": str | None, "loja": str, "preco": float, "url_compra": str}
 """
 
 import logging
@@ -30,9 +30,17 @@ HEADERS = {
 
 TIMEOUT = 10
 
-def _normalizar(jogo: str, loja: str, preco: float, url_compra: Optional[str]) -> Dict[str, Any]:
+
+def _normalizar(
+    jogo: str,
+    capa: Optional[str],
+    loja: str,
+    preco: float,
+    url_compra: Optional[str],
+) -> Dict[str, Any]:
     return {
         "jogo": jogo,
+        "capa": capa,
         "loja": loja,
         "preco": round(float(preco), 2),
         "url_compra": url_compra,
@@ -66,12 +74,23 @@ def scrape_steam(termo: str) -> List[Dict[str, Any]]:
                 continue
             preco = preco_centavos / 100
             link = f"https://store.steampowered.com/app/{app_id}"
-            resultados.append(_normalizar(nome, "Steam", preco, link))
+            # Capa: header.jpg é o asset padrão da Steam para cada app_id,
+            # não requer chamada extra à API.
+            capa = (
+                f"https://shared.akamai.steamstatic.com/store_item_assets/"
+                f"steam/apps/{app_id}/header.jpg"
+                if app_id
+                else None
+            )
+            resultados.append(_normalizar(nome, capa, "Steam", preco, link))
     except (requests.RequestException, ValueError, KeyError):
         pass
     return resultados
 
 
+# ---------------------------------------------------------------------------
+# GOG
+# ---------------------------------------------------------------------------
 def scrape_gog(termo: str) -> List[Dict[str, Any]]:
     """
     Busca jogos na GOG em duas etapas:
@@ -112,13 +131,44 @@ def scrape_gog(termo: str) -> List[Dict[str, Any]]:
                 # omitir a oferta do que salvar um valor aproximado/errado.
                 continue
 
+            capa = _construir_capa_gog(produto)
             link = f"https://www.gog.com/game/{slug}" if slug else None
-            resultados.append(_normalizar(nome.strip(), "GOG", preco, link))
+            resultados.append(_normalizar(nome.strip(), capa, "GOG", preco, link))
 
     except Exception as e:
         logger.warning(f"[GOG] Falha ao buscar catálogo: {e}")
 
     return resultados
+
+
+def _construir_capa_gog(produto: Dict[str, Any]) -> Optional[str]:
+    """
+    Monta a URL da capa a partir do campo de imagem base retornado pelo
+    catalog.gog.com. O catálogo normalmente expõe a imagem em
+    'coverHorizontal' ou 'cover', como URL protocol-relative (//...) e SEM
+    extensão/sufixo de formatação -- a GOG espera que o sufixo de tamanho
+    seja anexado pelo cliente.
+
+    Se nenhum campo de imagem for encontrado, retorna None (melhor omitir
+    a capa do que linkar uma imagem quebrada).
+    """
+    bruta = (
+        produto.get("coverHorizontal")
+        or produto.get("cover")
+        or produto.get("image")
+    )
+    if not bruta:
+        return None
+
+    if bruta.startswith("//"):
+        bruta = f"https:{bruta}"
+
+    # Se a URL já vier com extensão de imagem, usamos como está.
+    # Caso contrário, anexamos o sufixo de formatação padrão da GOG.
+    if not re.search(r"\.(jpg|jpeg|png|webp)(\?.*)?$", bruta, re.IGNORECASE):
+        bruta = f"{bruta}_product_card_v2_mobile_slider_639.jpg"
+
+    return bruta
 
 
 def _obter_preco_brl_gog(id_produto: str) -> Optional[float]:
@@ -162,11 +212,11 @@ def _obter_preco_brl_gog(id_produto: str) -> Optional[float]:
         logger.warning(f"[GOG] Falha ao obter preço BRL do produto {id_produto}: {e}")
         return None
 
+
 # ---------------------------------------------------------------------------
 # EPIC GAMES
 # ---------------------------------------------------------------------------
 def scrape_epic(termo: str) -> List[Dict[str, Any]]:
-
     """
     Busca jogos na Epic Games Store via GraphQL (searchStoreQuery).
     Conforme Spec 01: sem ferramentas de browser; em caso de bloqueio/erro
@@ -180,10 +230,13 @@ def scrape_epic(termo: str) -> List[Dict[str, Any]]:
         "Referer": "https://store.epicgames.com/pt-BR/browse",
         "Origin": "https://store.epicgames.com",
     }
+    # Adicionado keyImages{type url} ao query original para conseguir a capa
+    # sem precisar de uma segunda chamada.
     query_string = (
         "query searchStoreQuery($keywords:String,$country:String!,$locale:String){"
         "Catalog{searchStore(keywords:$keywords,country:$country,locale:$locale,count:10){"
-        "elements{title productSlug urlSlug price(country:$country){totalPrice{discountPrice}}}}}}"
+        "elements{title productSlug urlSlug keyImages{type url} "
+        "price(country:$country){totalPrice{discountPrice}}}}}}"
     )
     payload = {
         "operationName": "searchStoreQuery",
@@ -205,17 +258,31 @@ def scrape_epic(termo: str) -> List[Dict[str, Any]]:
                 preco = preco_centavos / 100
                 slug = item.get("urlSlug") or item.get("productSlug")
                 link = f"https://store.epicgames.com/pt-BR/p/{slug}" if slug else None
-                resultados.append(_normalizar(nome, "Epic Games", preco, link))
+                capa = _extrair_capa_epic(item)
+                resultados.append(_normalizar(nome, capa, "Epic Games", preco, link))
     except Exception:
         pass
     return resultados
+
+
+def _extrair_capa_epic(item: Dict[str, Any]) -> Optional[str]:
+    """
+    Procura em keyImages pela imagem mais adequada para exibição em lista/
+    card, na ordem de preferência OfferImageWide > Thumbnail. Retorna None
+    se nenhuma das duas estiver presente.
+    """
+    imagens = item.get("keyImages", []) or []
+    for tipo_preferido in ("OfferImageWide", "Thumbnail"):
+        for img in imagens:
+            if img.get("type") == tipo_preferido and img.get("url"):
+                return img["url"]
+    return None
 
 
 # ---------------------------------------------------------------------------
 # NUUVEM
 # ---------------------------------------------------------------------------
 def scrape_nuuvem(termo: str) -> List[Dict[str, Any]]:
-
     """
     Busca jogos na Nuuvem via parsing direto do HTML da página de busca
     (não há API pública documentada, conforme Spec 01).
@@ -236,16 +303,42 @@ def scrape_nuuvem(termo: str) -> List[Dict[str, Any]]:
         links_produto = soup.select('a[href*="/item/"], a[href*="/bundle/"]')
         for link_tag in links_produto:
             nome = link_tag.get("title") or link_tag.get_text(strip=True)
-            if not nome: continue
+            if not nome:
+                continue
             href = link_tag.get("href")
             if href and href.startswith("/"):
                 href = f"https://www.nuuvem.com{href}"
             preco = _extrair_preco_brl(link_tag.get_text(" ", strip=True))
-            if preco is None: continue
-            resultados.append(_normalizar(nome.strip(), "Nuuvem", preco, href))
+            if preco is None:
+                continue
+            capa = _extrair_capa_nuuvem(link_tag)
+            resultados.append(_normalizar(nome.strip(), capa, "Nuuvem", preco, href))
     except Exception:
         pass
     return resultados
+
+
+def _extrair_capa_nuuvem(link_tag) -> Optional[str]:
+    """
+    Procura uma tag <img> dentro do próprio link de produto (caso o card
+    inteiro seja o <a>) ou, como fallback, dentro do elemento pai (caso a
+    imagem esteja num elemento irmão dentro do mesmo card). Prioriza
+    'data-src' (lazy-load) sobre 'src', já que muitos cards na Nuuvem
+    carregam a imagem via lazy-loading.
+    """
+    img_tag = link_tag.find("img")
+    if img_tag is None and link_tag.parent is not None:
+        img_tag = link_tag.parent.find("img")
+    if img_tag is None:
+        return None
+
+    capa = img_tag.get("data-src") or img_tag.get("src")
+    if not capa:
+        return None
+    if capa.startswith("//"):
+        capa = f"https:{capa}"
+    return capa
+
 
 def _extrair_preco_brl(texto: str) -> Optional[float]:
     """
@@ -254,8 +347,11 @@ def _extrair_preco_brl(texto: str) -> Optional[float]:
     """
 
     matches = re.findall(r"R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})", texto)
-    if not matches: return None
+    if not matches:
+        return None
     valor = matches[-1]
     valor = valor.replace(".", "").replace(",", ".") if "." in valor else valor.replace(",", ".")
-    try: return float(valor)
-    except ValueError: return None
+    try:
+        return float(valor)
+    except ValueError:
+        return None

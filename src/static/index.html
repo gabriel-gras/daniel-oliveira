@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,8 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
     href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
-    rel="stylesheet"
-  />
+    rel="stylesheet" />
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -41,19 +41,18 @@
   <style>
     body {
       background-color: #14171c;
-      background-image: repeating-linear-gradient(
-        0deg,
-        rgba(255, 255, 255, 0.025) 0px,
-        rgba(255, 255, 255, 0.025) 1px,
-        transparent 1px,
-        transparent 3px
-      );
+      background-image: repeating-linear-gradient(0deg,
+          rgba(255, 255, 255, 0.025) 0px,
+          rgba(255, 255, 255, 0.025) 1px,
+          transparent 1px,
+          transparent 3px);
     }
 
     /* Painel em forma de ticket perfurado: notches recortados nas bordas */
     .ticket {
       position: relative;
     }
+
     .ticket::before,
     .ticket::after {
       content: "";
@@ -67,9 +66,11 @@
       transform: translateY(-50%);
       z-index: 1;
     }
+
     .ticket::before {
       left: -9px;
     }
+
     .ticket::after {
       right: -9px;
     }
@@ -83,11 +84,13 @@
         opacity: 0;
         transform: translateY(10px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
       }
     }
+
     .rise-in {
       animation: rise-in 0.35s ease-out both;
     }
@@ -108,12 +111,14 @@
       padding: 6px 12px;
       transition: all 0.15s ease;
     }
+
     .chip:hover {
       color: #ecedf1;
       border-color: #f5a623;
     }
   </style>
 </head>
+
 <body class="min-h-screen flex flex-col font-body text-ink">
   <!-- Cabeçalho -->
   <header class="border-b border-line px-6 py-4 flex items-center justify-between">
@@ -125,10 +130,8 @@
         comparator
       </span>
     </div>
-    <button
-      id="back-btn"
-      class="hidden font-mono text-xs uppercase tracking-wide text-muted hover:text-ink transition-colors"
-    >
+    <button id="back-btn"
+      class="hidden font-mono text-xs uppercase tracking-wide text-muted hover:text-ink transition-colors">
       ← nova busca
     </button>
   </header>
@@ -148,19 +151,10 @@
     <form id="search-form" class="w-full max-w-xl">
       <label for="search-input" class="sr-only">Buscar jogo</label>
       <div class="flex gap-2">
-        <input
-          id="search-input"
-          type="text"
-          autocomplete="off"
-          placeholder="ex: Hollow Knight"
-          class="flex-1 bg-surface border border-line rounded-lg px-4 py-3 font-mono text-sm
-                 focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/30 transition-all"
-        />
-        <button
-          type="submit"
-          class="bg-gold text-canvas font-mono text-xs uppercase tracking-wider font-semibold
-                 rounded-lg px-5 py-3 hover:brightness-110 active:scale-[0.98] transition-all"
-        >
+        <input id="search-input" type="text" autocomplete="off" placeholder="ex: Hollow Knight" class="flex-1 bg-surface border border-line rounded-lg px-4 py-3 font-mono text-sm
+                 focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/30 transition-all" />
+        <button type="submit" class="bg-gold text-canvas font-mono text-xs uppercase tracking-wider font-semibold
+                 rounded-lg px-5 py-3 hover:brightness-110 active:scale-[0.98] transition-all">
           escanear ⌕
         </button>
       </div>
@@ -178,14 +172,19 @@
 
   <!-- VIEW: RESULTADOS -->
   <main id="view-results" class="hidden flex-1 px-6 py-10 max-w-5xl w-full mx-auto">
-    <section class="grid md:grid-cols-[220px_1fr] gap-8 mb-12 rise-in">
+    <section class="grid md:grid-cols-[320px_1fr] gap-8 mb-12 rise-in md:items-center">
       <div>
-        <div class="aspect-[3/4] bg-surface border border-line rounded-lg overflow-hidden flex items-center justify-center">
-          <img id="game-cover" alt="" class="w-full h-full object-cover hidden" />
-          <svg id="game-cover-fallback" class="w-16 h-16 text-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M6 11h2m-1-1v2M14 12h.01M17 10h.01M5 8h14a2 2 0 0 1 2 2v5a3 3 0 0 1-3 3c-.8 0-1.5-.4-2-1l-1-1.5a2 2 0 0 0-1.6-.8H8.6a2 2 0 0 0-1.6.8L6 17a3 3 0 0 1-5-2v-5a2 2 0 0 1 2-2Z" stroke-linecap="round" stroke-linejoin="round"/>
+        <div
+          class="aspect-video bg-surface border border-line rounded-lg overflow-hidden flex items-center justify-center">
+          <img id="game-cover" alt="" loading="lazy" decoding="async" class="w-full h-full object-contain hidden" />
+          <svg id="game-cover-fallback" class="w-16 h-16 text-line" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.5">
+            <path
+              d="M6 11h2m-1-1v2M14 12h.01M17 10h.01M5 8h14a2 2 0 0 1 2 2v5a3 3 0 0 1-3 3c-.8 0-1.5-.4-2-1l-1-1.5a2 2 0 0 0-1.6-.8H8.6a2 2 0 0 0-1.6.8L6 17a3 3 0 0 1-5-2v-5a2 2 0 0 1 2-2Z"
+              stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </div>
+      </div>
       </div>
 
       <div class="flex flex-col">
@@ -216,4 +215,5 @@
 
   <script src="/static/app.js"></script>
 </body>
+
 </html>
